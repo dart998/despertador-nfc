@@ -9,6 +9,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -21,7 +24,9 @@ public class AlarmService extends Service {
     private static final String CHANNEL = "alarma";
     private static final int NOTIF_ID = 1;
 
+    private boolean started;
     private Vibrator vibrator;
+    private MediaPlayer player;
     private PowerManager.WakeLock wakeLock;
 
     static void start(Context c) {
@@ -53,19 +58,48 @@ public class AlarmService extends Service {
                     .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "despertador:alarma");
             wakeLock.acquire();
         }
-        if (vibrator == null) {
-            vibrator = getSystemService(Vibrator.class);
-            // 0,8 s vibrando y 0,4 s de pausa, en bucle. Uso "alarma" para que
-            // vibre también con el teléfono en silencio o con la pantalla apagada.
-            VibrationEffect effect = VibrationEffect.createWaveform(new long[]{0, 800, 400}, 0);
+        if (!started) {
+            started = true;
+            // Uso "alarma": suena y vibra también con el teléfono en silencio o
+            // con la pantalla apagada.
             AudioAttributes attrs = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build();
-            vibrator.vibrate(effect, attrs);
+            boolean soundOk = Store.sound(this) && startSound(attrs);
+            // Si el sonido falla, vibra de todos modos para que la alarma no quede muda.
+            if (Store.vibrate(this) || !soundOk) {
+                vibrator = getSystemService(Vibrator.class);
+                // 0,8 s vibrando y 0,4 s de pausa, en bucle.
+                vibrator.vibrate(
+                        VibrationEffect.createWaveform(new long[]{0, 800, 400}, 0), attrs);
+            }
         }
         // Si el sistema mata el servicio, lo vuelve a arrancar y sigue vibrando.
         return START_STICKY;
+    }
+
+    /** Reproduce en bucle el tono de alarma del teléfono. */
+    private boolean startSound(AudioAttributes attrs) {
+        Uri uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM);
+        if (uri == null) {
+            uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+        if (uri == null) {
+            uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        }
+        try {
+            MediaPlayer mp = new MediaPlayer();
+            mp.setAudioAttributes(attrs);
+            mp.setDataSource(this, uri);
+            mp.setLooping(true);
+            mp.prepare();
+            mp.start();
+            player = mp;
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private Notification buildNotification() {
@@ -84,7 +118,7 @@ public class AlarmService extends Service {
 
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_notif)
-                .setContentTitle(getString(R.string.sonando_titulo))
+                .setContentTitle(Store.message(this))
                 .setContentText(getString(R.string.notif_texto))
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -96,6 +130,14 @@ public class AlarmService extends Service {
 
     @Override
     public void onDestroy() {
+        if (player != null) {
+            try {
+                player.stop();
+            } catch (IllegalStateException ignored) {
+            }
+            player.release();
+            player = null;
+        }
         if (vibrator != null) {
             vibrator.cancel();
             vibrator = null;

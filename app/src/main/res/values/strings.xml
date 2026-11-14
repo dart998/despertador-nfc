@@ -3,9 +3,15 @@
     <string name="app_name">Despertador NFC</string>
     <string name="toca_hora">Toca la hora para cambiarla</string>
     <string name="alarma_diaria">Alarma diaria</string>
-    <string name="solo_vibra">Solo vibra, sin sonido</string>
+    <string name="solo_tarjeta">Solo se para con la tarjeta NFC</string>
     <string name="desactivada">Alarma desactivada</string>
-    <string name="suena_en">Vibrará en %1$s</string>
+    <string name="suena_en">Saltará en %1$s</string>
+    <string name="vibrar">Vibrar</string>
+    <string name="sonar">Sonar</string>
+    <string name="mensaje">Mensaje de la alarma</string>
+    <string name="guardar">Guardar</string>
+    <string name="desbloquear">Desbloquear</string>
+    <string name="sonando_texto_libre">Acerca tu tarjeta NFC para pararla</string>
     <string name="tarjeta">Tarjeta NFC</string>
     <string name="sin_tarjeta">Sin registrar. Hace falta una tarjeta para activar la alarma.</string>
     <string name="tarjeta_ok">Registrada · %1$s</string>
@@ -19,7 +25,7 @@
     <string name="nfc_apagado">El NFC está apagado. Toca aquí para encenderlo.</string>
     <string name="sin_nfc">Este teléfono no tiene NFC</string>
     <string name="sonando_titulo">Alarma</string>
-    <string name="sonando_texto">Desbloquea el teléfono y acerca tu tarjeta NFC para pararla</string>
+    <string name="sonando_texto">Desbloquea el teléfono y después acerca tu tarjeta NFC</string>
     <string name="tarjeta_incorrecta">Esa no es la tarjeta registrada</string>
     <string name="alarma_parada">Alarma parada</string>
     <string name="canal">Alarma</string>

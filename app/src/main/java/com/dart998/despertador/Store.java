@@ -42,6 +42,28 @@ final class Store {
         p(c).edit().putString("tarjeta", id).apply();
     }
 
+    static boolean vibrate(Context c) {
+        return p(c).getBoolean("vibrar", true);
+    }
+
+    static boolean sound(Context c) {
+        return p(c).getBoolean("sonar", false);
+    }
+
+    static void setModes(Context c, boolean vibrate, boolean sound) {
+        p(c).edit().putBoolean("vibrar", vibrate).putBoolean("sonar", sound).apply();
+    }
+
+    /** Mensaje que se muestra al saltar la alarma; vacío = texto por defecto. */
+    static String message(Context c) {
+        String m = p(c).getString("mensaje", "");
+        return m.trim().isEmpty() ? c.getString(R.string.sonando_titulo) : m.trim();
+    }
+
+    static void setMessage(Context c, String m) {
+        p(c).edit().putString("mensaje", m).apply();
+    }
+
     static boolean ringing(Context c) {
         return p(c).getBoolean("vibrando", false);
     }

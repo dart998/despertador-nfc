@@ -2,7 +2,12 @@ package com.dart998.despertador;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.KeyguardManager;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -46,6 +51,13 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
     private TextView avisoNfc;
     private TextView sonandoHora;
     private TextView sonandoTexto;
+    private TextView sonandoTitulo;
+    private TextView desbloquear;
+    private Switch vibrar;
+    private Switch sonar;
+    private TextView mensaje;
+    private boolean unlockRequested;
+    private long wrongUntil;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +74,11 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
         avisoNfc = findViewById(R.id.aviso_nfc);
         sonandoHora = findViewById(R.id.sonando_hora);
         sonandoTexto = findViewById(R.id.sonando_texto);
+        sonandoTitulo = findViewById(R.id.sonando_titulo);
+        desbloquear = findViewById(R.id.desbloquear);
+        vibrar = findViewById(R.id.vibrar);
+        sonar = findViewById(R.id.sonar);
+        mensaje = findViewById(R.id.mensaje);
 
         nfc = NfcAdapter.getDefaultAdapter(this);
 
@@ -88,6 +105,27 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
         });
 
         avisoNfc.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_NFC_SETTINGS)));
+
+        // Vibrar y sonar: siempre queda al menos uno encendido, para que la
+        // alarma no pueda quedarse muda.
+        vibrar.setOnClickListener(v -> {
+            boolean vib = vibrar.isChecked();
+            Store.setModes(this, vib, Store.sound(this) || !vib);
+            render();
+        });
+        sonar.setOnClickListener(v -> {
+            boolean snd = sonar.isChecked();
+            Store.setModes(this, Store.vibrate(this) || !snd, snd);
+            render();
+        });
+
+        findViewById(R.id.mensaje_fila).setOnClickListener(v -> editMessage());
+
+        desbloquear.setOnClickListener(v -> {
+            unlockRequested = true;
+            render();
+            getSystemService(KeyguardManager.class).requestDismissKeyguard(this, null);
+        });
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -143,8 +181,7 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
                 AlarmService.stop(this);
                 Toast.makeText(this, R.string.alarma_parada, Toast.LENGTH_SHORT).show();
             } else {
-                sonandoTexto.setText(R.string.tarjeta_incorrecta);
-                handler.postDelayed(() -> sonandoTexto.setText(R.string.sonando_texto), 2500);
+                wrongUntil = System.currentTimeMillis() + 2500;
             }
             render();
             return;
@@ -177,10 +214,22 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
         if (ringing) {
             registering = false;
             sonandoHora.setText(time);
+            sonandoTitulo.setText(Store.message(this));
+            boolean locked = getSystemService(KeyguardManager.class).isKeyguardLocked();
+            desbloquear.setVisibility(locked ? View.VISIBLE : View.GONE);
+            if (System.currentTimeMillis() < wrongUntil) {
+                sonandoTexto.setText(R.string.tarjeta_incorrecta);
+            } else {
+                sonandoTexto.setText(locked
+                        ? R.string.sonando_texto : R.string.sonando_texto_libre);
+            }
             return;
         }
 
         hora.setText(time);
+        vibrar.setChecked(Store.vibrate(this));
+        sonar.setChecked(Store.sound(this));
+        mensaje.setText(Store.message(this));
 
         String tag = Store.tag(this);
         boolean on = Store.enabled(this) && tag != null;
@@ -209,21 +258,47 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
         }
     }
 
-    /** Mientras vibra: se muestra sobre la pantalla de bloqueo y la mantiene encendida. */
-    private void setLockScreenMode(boolean on) {
-        if (on == lockScreenMode) {
-            return;
+    /**
+     * Mientras la alarma está activa la pantalla se muestra encima del bloqueo.
+     * Al pulsar "Desbloquear" deja de mostrarse encima, de modo que aparece la
+     * pantalla de bloqueo normal del teléfono y, al desbloquear, se vuelve aquí.
+     */
+    private void setLockScreenMode(boolean ringing) {
+        if (!ringing) {
+            unlockRequested = false;
         }
-        lockScreenMode = on;
-        setShowWhenLocked(on);
-        setTurnScreenOn(on);
-        if (on) {
+        boolean overLock = ringing && !unlockRequested;
+        if (overLock != lockScreenMode) {
+            lockScreenMode = overLock;
+            setShowWhenLocked(overLock);
+            setTurnScreenOn(overLock);
+        }
+        if (ringing) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            // El NFC solo lee con el teléfono desbloqueado: pide el desbloqueo.
-            getSystemService(KeyguardManager.class).requestDismissKeyguard(this, null);
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    private void editMessage() {
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
+        input.setText(Store.message(this));
+        input.setSelection(input.getText().length());
+        FrameLayout box = new FrameLayout(this);
+        int pad = (int) (24 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.mensaje)
+                .setView(box)
+                .setPositiveButton(R.string.guardar, (d, w) -> {
+                    Store.setMessage(this, input.getText().toString());
+                    render();
+                })
+                .setNegativeButton(R.string.cancelar, null)
+                .show();
     }
 
     private String remaining() {
