@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fondo">#0F1115</color>
+    <color name="tarjeta">#1A1D24</color>
+    <color name="texto">#F2F3F5</color>
+    <color name="tenue">#8B90A0</color>
+    <color name="acento">#7C8CFF</color>
+    <color name="alarma">#E5484D</color>
+
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fondo</item>
+        <item name="android:statusBarColor">@color/fondo</item>
+        <item name="android:navigationBarColor">@color/fondo</item>
+        <item name="android:colorAccent">@color/acento</item>
+        <item name="android:textColorPrimary">@color/texto</item>
+    </style>
+</resources>

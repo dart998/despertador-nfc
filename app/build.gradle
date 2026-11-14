@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+// El workflow pasa -PversionCode=<número de ejecución> para que cada
+// compilación se pueda instalar encima de la anterior.
+def buildNumber = (project.findProperty('versionCode') ?: '1') as int
+
+android {
+    namespace 'com.dart998.despertador'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.dart998.despertador'
+        minSdk 28
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    signingConfigs {
+        release {
+            // Clave fija guardada en el repo: todas las versiones salen con la
+            // misma firma y Android las acepta como actualización.
+            storeFile file('release.keystore')
+            storeType 'PKCS12'
+            storePassword 'despertador-release'
+            keyAlias 'despertador'
+            keyPassword 'despertador-release'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
